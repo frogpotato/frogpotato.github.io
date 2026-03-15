@@ -1,0 +1,1269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fruit Launcher 🌳</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { overflow: hidden; background: #87CEEB; font-family: 'Comic Sans MS', 'Chalkboard SE', cursive; }
+canvas { display: block; cursor: crosshair; }
+#ui {
+  position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+  display: flex; gap: 20px; align-items: center;
+  background: rgba(255,255,255,0.85); border-radius: 20px; padding: 8px 24px;
+  font-size: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  z-index: 10;
+}
+#ui span { font-weight: bold; }
+#fruit-selector {
+  position: absolute; bottom: 15px; left: 50%; transform: translateX(-50%);
+  display: flex; gap: 12px; z-index: 10;
+}
+.fruit-btn {
+  font-size: 36px; border: 3px solid #fff; border-radius: 16px;
+  padding: 6px 14px; cursor: pointer; background: rgba(255,255,255,0.8);
+  box-shadow: 0 3px 8px rgba(0,0,0,0.15); transition: all 0.2s;
+}
+.fruit-btn.selected { border-color: #FF6B35; background: #FFF3E0; transform: scale(1.15); }
+.fruit-btn.locked { opacity: 0.35; cursor: not-allowed; filter: grayscale(1); }
+#power-bar-bg {
+  position: absolute; left: 20px; bottom: 80px; width: 30px; height: 200px;
+  background: rgba(0,0,0,0.2); border-radius: 15px; border: 3px solid #fff;
+  z-index: 10; overflow: hidden;
+}
+#power-bar-fill {
+  position: absolute; bottom: 0; width: 100%; height: 0%;
+  background: linear-gradient(to top, #4CAF50, #FFEB3B, #F44336);
+  border-radius: 12px; transition: height 0.05s;
+}
+#message {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+  font-size: 48px; color: #fff; text-shadow: 3px 3px 6px rgba(0,0,0,0.4);
+  z-index: 20; pointer-events: none; opacity: 0; transition: opacity 0.3s;
+}
+#start-screen, #level-screen {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; z-index: 30;
+  background: linear-gradient(180deg, #87CEEB 0%, #98FB98 100%);
+}
+#start-screen h1 { font-size: 64px; color: #2E7D32; text-shadow: 3px 3px 0 #fff; margin-bottom: 10px; }
+#start-screen p, #level-screen p { font-size: 24px; color: #555; margin: 8px 0; }
+.big-btn {
+  font-family: inherit; font-size: 32px; padding: 16px 48px; border: none;
+  border-radius: 20px; cursor: pointer; margin-top: 20px;
+  background: #FF6B35; color: #fff; box-shadow: 0 6px 0 #C74B1A;
+  transition: transform 0.1s;
+}
+.big-btn:active { transform: translateY(3px); box-shadow: 0 3px 0 #C74B1A; }
+#level-screen { display: none; }
+#level-screen h2 { font-size: 52px; color: #2E7D32; }
+#fact-banner {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%) scale(0.8);
+  background: rgba(255,255,255,0.93); border-radius: 24px; padding: 20px 36px;
+  max-width: 520px; text-align: center; z-index: 25; pointer-events: none;
+  opacity: 0; box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+  border: 4px solid #66BB6A;
+  transition: opacity 0.4s, transform 0.4s;
+}
+#fact-banner.show { opacity: 1; transform: translate(-50%,-50%) scale(1); pointer-events: auto; }
+#fact-banner .fact-label {
+  font-size: 14px; color: #888; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 6px;
+}
+#fact-banner .fact-text {
+  font-size: 22px; color: #2E7D32; line-height: 1.4; margin-bottom: 16px;
+}
+#fact-banner .fact-emoji {
+  font-size: 36px; margin-bottom: 6px;
+}
+#fact-next-btn {
+  font-family: inherit; font-size: 22px; padding: 10px 36px; border: none;
+  border-radius: 14px; cursor: pointer;
+  background: #66BB6A; color: #fff; box-shadow: 0 4px 0 #43A047;
+  transition: transform 0.1s;
+}
+#fact-next-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #43A047; }
+</style>
+</head>
+<body>
+
+<div id="start-screen">
+  <h1>🌳 Fruit Launcher 🌳</h1>
+  <p>Aim, charge, and launch fruit across the field!</p>
+  <p>🥭 Land on green patches for bonus points!</p>
+  <button class="big-btn" onclick="startGame()">Play!</button>
+</div>
+
+<div id="level-screen">
+  <h2 id="level-title"></h2>
+  <p id="level-desc"></p>
+  <button class="big-btn" onclick="startLevel()">Go!</button>
+</div>
+
+<div id="ui">
+  <span>🌟 Score: <span id="score">0</span></span>
+  <span>🌳 Level: <span id="level">1</span></span>
+  <span>🎯 Shots: <span id="shots">0</span></span>
+</div>
+
+<div id="power-bar-bg"><div id="power-bar-fill"></div></div>
+
+<div id="fruit-selector">
+  <button class="fruit-btn selected" data-fruit="0" onclick="selectFruit(0)">🥭</button>
+  <button class="fruit-btn locked" data-fruit="1" onclick="selectFruit(1)">🍋</button>
+  <button class="fruit-btn locked" data-fruit="2" onclick="selectFruit(2)">🥥</button>
+</div>
+
+<div id="message"></div>
+<div id="fact-banner">
+  <div class="fact-emoji">🌱</div>
+  <div class="fact-label">Did you know?</div>
+  <div class="fact-text" id="fact-text"></div>
+  <button id="fact-next-btn" onclick="dismissFact()">Next! 🌳</button>
+</div>
+
+<canvas id="game"></canvas>
+
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+
+function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+window.addEventListener('resize', resize);
+resize();
+
+// Audio context for sound effects
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+let audioCtx;
+function ensureAudio() { if (!audioCtx) audioCtx = new AudioCtx(); }
+
+function playSound(type) {
+  ensureAudio();
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  const t = audioCtx.currentTime;
+  if (type === 'launch') {
+    osc.type = 'sine'; osc.frequency.setValueAtTime(300, t);
+    osc.frequency.exponentialRampToValueAtTime(800, t + 0.15);
+    gain.gain.setValueAtTime(0.3, t); gain.gain.exponentialRampToValueAtTime(0.01, t + 0.2);
+    osc.start(t); osc.stop(t + 0.2);
+  } else if (type === 'land') {
+    osc.type = 'triangle'; osc.frequency.setValueAtTime(500, t);
+    osc.frequency.exponentialRampToValueAtTime(200, t + 0.3);
+    gain.gain.setValueAtTime(0.25, t); gain.gain.exponentialRampToValueAtTime(0.01, t + 0.35);
+    osc.start(t); osc.stop(t + 0.35);
+  } else if (type === 'bounce') {
+    osc.type = 'sine'; osc.frequency.setValueAtTime(600, t);
+    osc.frequency.exponentialRampToValueAtTime(300, t + 0.1);
+    gain.gain.setValueAtTime(0.2, t); gain.gain.exponentialRampToValueAtTime(0.01, t + 0.12);
+    osc.start(t); osc.stop(t + 0.12);
+  } else if (type === 'score') {
+    osc.type = 'sine'; osc.frequency.setValueAtTime(523, t);
+    osc.frequency.setValueAtTime(659, t + 0.1);
+    osc.frequency.setValueAtTime(784, t + 0.2);
+    gain.gain.setValueAtTime(0.2, t); gain.gain.exponentialRampToValueAtTime(0.01, t + 0.4);
+    osc.start(t); osc.stop(t + 0.4);
+  } else if (type === 'levelup') {
+    osc.type = 'square'; osc.frequency.setValueAtTime(400, t);
+    osc.frequency.setValueAtTime(500, t+0.1); osc.frequency.setValueAtTime(600, t+0.2);
+    osc.frequency.setValueAtTime(800, t+0.3);
+    gain.gain.setValueAtTime(0.15, t); gain.gain.exponentialRampToValueAtTime(0.01, t+0.5);
+    osc.start(t); osc.stop(t+0.5);
+  } else if (type === 'bird') {
+    osc.type = 'sawtooth'; osc.frequency.setValueAtTime(800, t);
+    osc.frequency.exponentialRampToValueAtTime(400, t + 0.15);
+    gain.gain.setValueAtTime(0.1, t); gain.gain.exponentialRampToValueAtTime(0.01, t + 0.18);
+    osc.start(t); osc.stop(t + 0.18);
+  }
+}
+
+// Tree & seed facts
+const TREE_FACTS = [
+  "A single tree can absorb 48 pounds of carbon dioxide per year!",
+  "Seeds can stay dormant for hundreds of years and still sprout.",
+  "The oldest known tree is over 5,000 years old — it's a bristlecone pine!",
+  "Trees talk to each other through underground fungus networks called the 'wood wide web.'",
+  "A coconut is one of the largest seeds in the world!",
+  "An oak tree can produce 70,000 acorns in a single year.",
+  "Mangoes are related to cashews and pistachios!",
+  "Some seeds need to pass through an animal's tummy before they can grow.",
+  "The tallest tree ever measured was over 380 feet tall — taller than the Statue of Liberty!",
+  "Bamboo can grow up to 35 inches in a single day!",
+  "A fig tree can live for over 200 years.",
+  "Trees in a forest share food with sick neighbors through their roots.",
+  "The world's smallest seed comes from an orchid — it's as tiny as a speck of dust!",
+  "Apple seeds from the same apple can grow into completely different trees.",
+  "Maple seeds spin like tiny helicopters when they fall!",
+  "A single large tree can provide a day's oxygen for up to 4 people.",
+  "Coconuts can float across the ocean and grow on a new beach!",
+  "Bananas don't grow on trees — they grow on giant herbs!",
+  "Some pine cones only open and release their seeds after a forest fire.",
+  "Trees can lower the air temperature by up to 10 degrees Fahrenheit.",
+  "The baobab tree can store up to 32,000 gallons of water in its trunk!",
+  "Cherry blossoms bloom for only about one to two weeks each year.",
+  "Avocados were spread by giant ground sloths that lived thousands of years ago!",
+  "A redwood tree's bark can be over a foot thick.",
+  "Sunflower seeds arrange themselves in perfect spirals using math called the Fibonacci sequence!",
+  "Trees can send chemical warnings to other trees when insects attack.",
+  "The cacao tree's seeds are used to make chocolate!",
+  "Some trees can clone themselves — one tree in Utah has 47,000 connected trunks!",
+  "Dandelion seeds can travel up to 5 miles on the wind.",
+  "A strawberry has about 200 seeds on the outside of its skin.",
+  "Palm trees bend but rarely break in hurricanes because they're actually giant grasses!",
+  "The Amazon rainforest produces 20% of the world's oxygen.",
+  "A peach and a nectarine are almost the same — just one gene makes the skin fuzzy!",
+  "Trees grow from the top, not the bottom — a branch stays at the same height forever.",
+  "One teaspoon of soil can contain up to a billion bacteria that help seeds grow!",
+  "Squirrels forget where they bury about 25% of their acorns — and those grow into new trees!",
+  "Willow tree bark contains the ingredient used to make aspirin.",
+  "Lemons are actually a hybrid between a citron and a bitter orange!",
+  "A Venus flytrap can count! It only closes after being touched twice.",
+  "Some orchid seeds are so tiny that 800,000 of them weigh just one gram!",
+  "Peanuts aren't nuts — they're seeds that grow underground!",
+  "The ginkgo tree has been around for 200 million years — it lived with the dinosaurs!",
+  "Trees have growth rings because they grow faster in spring and slower in winter.",
+  "A watermelon is 92% water!",
+  "Walnuts look like tiny brains, and they're actually good for your brain!",
+  "The world's largest flower, the Rafflesia, smells like rotting meat to attract flies!",
+  "Trees release tiny drops of water from their leaves — it's called transpiration!",
+  "A pomegranate can have over 1,000 seeds inside it!",
+  "Some trees can live in salt water — they're called mangroves.",
+  "Corn is actually a type of grass, and each kernel is a seed!",
+  "The jackfruit is the largest fruit that grows on a tree — it can weigh 80 pounds!",
+  "Trees can be struck by lightning and survive because the sap inside them boils and explodes the bark outward!",
+  "There are more than 60,000 known species of trees on Earth.",
+  "A bonsai tree is a regular tree that's kept small through careful trimming!",
+  "Mushrooms help tree roots absorb water and nutrients from the soil.",
+  "A lotus seed was once sprouted after being dormant for 1,300 years!",
+  "Apples float in water because they're 25% air!",
+  "The roots of a tree can spread underground wider than the branches spread above.",
+  "Rainforests get 80 inches or more of rain every single year!",
+  "Carrots, beets, and radishes are all roots — the plant stores energy underground as a seed-starter.",
+  "Trees planted near buildings can reduce air conditioning costs by up to 30%.",
+  "A blueberry bush can produce berries for over 50 years!",
+  "Sycamore seeds spin as they fall and are sometimes called 'whirlybirds.'",
+  "There are over 7,500 varieties of apples grown around the world!",
+  "Moss doesn't have seeds — it spreads using tiny spores.",
+  "A coconut palm can produce 75 coconuts per year.",
+  "Some desert plants can survive years without rain by going completely dormant.",
+  "Pinecones close up when it's humid and open when it's dry to release seeds!",
+  "The world's largest seed is the coco de mer — it can weigh 40 pounds!",
+  "Rubber comes from the sap of rubber trees!",
+  "A grain of rice is a seed, and rice feeds more people than any other crop.",
+  "Trees in cities help reduce noise pollution by absorbing sound.",
+  "The dragon blood tree has red sap that looks like dragon blood!",
+  "An almond is actually the seed inside a fruit related to peaches!",
+  "Cacti have spines instead of leaves to save water in the desert.",
+  "Trees can 'scream' — when they're very thirsty, they make ultrasonic sounds!",
+  "The sandbox tree explodes its seeds outward at 150 miles per hour!",
+  "Most of a tree's roots are in the top 18 inches of soil.",
+  "A Brazil nut tree can only grow if a specific orchid bee is around to pollinate it!",
+  "Cinnamon is made from the bark of a tree.",
+  "Mistletoe is a plant that grows on other trees and steals their water.",
+  "One mature tree can be home to over 500 different species of insects!",
+  "In fall, leaves don't actually change color — the green just fades away to reveal hidden colors!",
+  "A kiwi fruit has more vitamin C than an orange!",
+  "Joshua trees can only spread their seeds with the help of a tiny moth.",
+  "Seaweed isn't a plant — it's algae. But kelp forests work like underwater trees!",
+  "The coffee bean is actually a seed from inside a coffee cherry fruit.",
+  "A giant sequoia tree can weigh over 2 million pounds!",
+  "Tree frogs help spread seeds by carrying them on their sticky feet.",
+  "The kapok tree shoots its seeds into the air wrapped in fluffy cotton-like fibers!",
+  "Planting trees near rivers helps keep the water cool for fish.",
+  "Pecans are one of the newest nut trees — they were first grown as a crop about 200 years ago.",
+  "Rainforest trees grow so thick that rain can take 10 minutes to reach the ground!",
+  "Some seeds have tiny hooks to hitch a ride on animal fur — that's how burrs work!",
+  "Cloves are actually dried flower buds from a tree!",
+  "Trees produce more food underground by feeding soil creatures than they produce as fruit above ground.",
+  "The oldest fruit tree ever planted by humans is a fig tree — from about 11,400 years ago!",
+  "A single sunflower head can contain up to 2,000 seeds!",
+  "Birch trees have paper-thin bark that Native Americans used to build canoes.",
+  "If you plant a seed upside down, the roots still grow down and the stem still grows up!",
+  "Cashews grow hanging from the bottom of a fruit called a cashew apple!",
+];
+
+function showFact() {
+  const fact = TREE_FACTS[Math.floor(Math.random() * TREE_FACTS.length)];
+  const emojis = ['🌱','🌳','🌲','🍎','🌿','🍃','🌴','🌻','🍂','🌾','🪴','🌸','🍀','🌺','🥜'];
+  const emoji = emojis[Math.floor(Math.random() * emojis.length)];
+  document.getElementById('fact-text').textContent = fact;
+  document.querySelector('#fact-banner .fact-emoji').textContent = emoji;
+  document.getElementById('fact-banner').classList.add('show');
+}
+
+function dismissFact() {
+  document.getElementById('fact-banner').classList.remove('show');
+  checkLevelProgress();
+  state.targetCameraX = 0;
+  state.screen = 'playing';
+}
+
+// Game state
+const GRAVITY = 0.35;
+const GROUND_Y_RATIO = 0.78;
+let groundY;
+
+const FRUITS = [
+  { name: 'Mango', emoji: '🥭', mass: 1.8, windFactor: 0.5, bounces: false, color: '#FFB300' },
+  { name: 'Fig', emoji: '🍋', mass: 0.7, windFactor: 2.0, bounces: false, color: '#C0CA33' },
+  { name: 'Coconut', emoji: '🥥', mass: 2.0, windFactor: 0.4, bounces: true, color: '#795548' },
+];
+
+const LEVELS = [
+  { birds: 0, windMax: 0, patches: 6, desc: "A calm, sunny day!" },
+  { birds: 1, windMax: 0.5, patches: 7, desc: "A gentle breeze blows..." },
+  { birds: 2, windMax: 1.0, patches: 7, desc: "Watch out for birds!" },
+  { birds: 3, windMax: 1.5, patches: 8, desc: "Gusty winds and hungry birds!" },
+  { birds: 4, windMax: 2.0, patches: 9, desc: "The ultimate launch!" },
+];
+
+let state = {
+  screen: 'start', // start, levelIntro, playing, flying, landed
+  level: 0,
+  score: 0,
+  totalShots: 0,
+  treeGrowth: 0, // 0-1 extra growth from scoring
+  selectedFruit: 0,
+  unlockedFruits: [true, false, false],
+  // Aiming
+  aimAngle: -Math.PI / 4,
+  charging: false,
+  power: 0,
+  // Projectile
+  fruit: null,
+  // Level objects
+  birds: [],
+  windGusts: [],
+  soilPatches: [],
+  // Particles & effects
+  particles: [],
+  sprouts: [],
+  clouds: [],
+  // Messages
+  showMessage: '',
+  messageTimer: 0,
+  // Camera
+  cameraX: 0,
+  targetCameraX: 0,
+};
+
+// Mouse / input
+let mouseX = 0, mouseY = 0;
+let mouseDown = false;
+let keysDown = {};
+
+function getTreeBase() {
+  const h = canvas.height;
+  const growth = 1 + state.treeGrowth * 0.6;
+  return {
+    x: 120,
+    y: groundY,
+    trunkH: (80 + state.level * 12) * growth,
+    canopyR: (50 + state.level * 8) * growth,
+  };
+}
+
+function getLaunchPoint() {
+  const tree = getTreeBase();
+  return { x: tree.x + tree.canopyR * 0.6, y: tree.y - tree.trunkH - tree.canopyR * 0.3 };
+}
+
+// Generate soil patches for a level
+function generatePatches(levelIdx) {
+  const patches = [];
+  const count = LEVELS[levelIdx].patches;
+  const w = canvas.width;
+  const startX = 300;
+  const endX = w * 3;
+  for (let i = 0; i < count; i++) {
+    const x = startX + (endX - startX) * (i + 0.3 + Math.random() * 0.4) / count;
+    const quality = Math.random();
+    let type, color, label;
+    if (quality < 0.3) { type = 'great'; color = '#4CAF50'; label = '🌱'; }
+    else if (quality < 0.65) { type = 'okay'; color = '#FDD835'; label = '🌿'; }
+    else { type = 'bad'; color = '#8D6E63'; label = '🍂'; }
+    const pw = 60 + Math.random() * 40;
+    patches.push({ x, y: groundY, w: pw, h: 12, type, color, label });
+  }
+  return patches;
+}
+
+// Generate birds
+function generateBirds(levelIdx) {
+  const birds = [];
+  const count = LEVELS[levelIdx].birds;
+  for (let i = 0; i < count; i++) {
+    birds.push({
+      x: 400 + Math.random() * canvas.width * 2,
+      y: 80 + Math.random() * (groundY - 200),
+      vx: (Math.random() > 0.5 ? 1 : -1) * (1 + Math.random() * 2),
+      vy: Math.sin(Math.random() * Math.PI * 2) * 0.5,
+      wingPhase: Math.random() * Math.PI * 2,
+      hit: false,
+    });
+  }
+  return birds;
+}
+
+// Generate wind gusts
+function generateWindGusts(levelIdx) {
+  const gusts = [];
+  const wm = LEVELS[levelIdx].windMax;
+  if (wm <= 0) return gusts;
+  const count = 2 + levelIdx;
+  for (let i = 0; i < count; i++) {
+    gusts.push({
+      x: 350 + Math.random() * canvas.width * 2,
+      y: 60 + Math.random() * (groundY - 180),
+      w: 120 + Math.random() * 100,
+      h: 80 + Math.random() * 60,
+      strength: (Math.random() > 0.5 ? 1 : -1) * (0.3 + Math.random() * wm),
+      particles: [],
+      phase: Math.random() * Math.PI * 2,
+    });
+  }
+  return gusts;
+}
+
+function generateClouds() {
+  const clouds = [];
+  for (let i = 0; i < 6; i++) {
+    clouds.push({
+      x: Math.random() * canvas.width * 3,
+      y: 30 + Math.random() * 120,
+      w: 80 + Math.random() * 120,
+      speed: 0.2 + Math.random() * 0.3,
+    });
+  }
+  return clouds;
+}
+
+// Drawing functions
+function drawSky() {
+  const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+  grad.addColorStop(0, '#87CEEB');
+  grad.addColorStop(0.6, '#B3E5FC');
+  grad.addColorStop(1, '#E8F5E9');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+}
+
+function drawSun() {
+  ctx.save();
+  ctx.fillStyle = '#FFF176';
+  ctx.shadowColor = '#FFD54F';
+  ctx.shadowBlur = 40;
+  ctx.beginPath();
+  ctx.arc(canvas.width - 100 + state.cameraX * 0.1, 80, 45, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawClouds() {
+  ctx.fillStyle = 'rgba(255,255,255,0.85)';
+  for (const c of state.clouds) {
+    const sx = c.x - state.cameraX * 0.3;
+    ctx.beginPath();
+    ctx.ellipse(sx, c.y, c.w * 0.5, 25, 0, 0, Math.PI * 2);
+    ctx.ellipse(sx - c.w * 0.25, c.y + 8, c.w * 0.3, 20, 0, 0, Math.PI * 2);
+    ctx.ellipse(sx + c.w * 0.25, c.y + 5, c.w * 0.35, 22, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function drawGround() {
+  const grad = ctx.createLinearGradient(0, groundY, 0, canvas.height);
+  grad.addColorStop(0, '#7CB342');
+  grad.addColorStop(0.3, '#689F38');
+  grad.addColorStop(1, '#558B2F');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, groundY, canvas.width, canvas.height - groundY);
+
+  // Grass tufts
+  ctx.strokeStyle = '#8BC34A';
+  ctx.lineWidth = 2;
+  for (let i = 0; i < canvas.width + 200; i += 15) {
+    const gx = i + ((state.cameraX * 0.99) % 15);
+    const baseX = i - (state.cameraX % 15);
+    ctx.beginPath();
+    ctx.moveTo(baseX, groundY);
+    ctx.quadraticCurveTo(baseX - 3, groundY - 10 - Math.sin(i * 0.1) * 4, baseX + 2, groundY - 14);
+    ctx.stroke();
+  }
+}
+
+function drawTree() {
+  const tree = getTreeBase();
+  const tx = tree.x - state.cameraX;
+
+  // Shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.1)';
+  ctx.beginPath();
+  ctx.ellipse(tx + 20, groundY + 5, tree.canopyR * 0.8, 10, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Trunk
+  ctx.fillStyle = '#5D4037';
+  const tw = 18 + state.treeGrowth * 6;
+  ctx.beginPath();
+  ctx.moveTo(tx - tw, tree.y);
+  ctx.quadraticCurveTo(tx - tw * 0.8, tree.y - tree.trunkH * 0.5, tx - tw * 0.5, tree.y - tree.trunkH);
+  ctx.lineTo(tx + tw * 0.5, tree.y - tree.trunkH);
+  ctx.quadraticCurveTo(tx + tw * 0.8, tree.y - tree.trunkH * 0.5, tx + tw, tree.y);
+  ctx.fill();
+
+  // Bark lines
+  ctx.strokeStyle = '#4E342E';
+  ctx.lineWidth = 1.5;
+  for (let i = 0; i < 4; i++) {
+    const by = tree.y - tree.trunkH * (0.2 + i * 0.2);
+    ctx.beginPath();
+    ctx.moveTo(tx - tw * 0.3, by);
+    ctx.quadraticCurveTo(tx, by - 5, tx + tw * 0.3, by + 3);
+    ctx.stroke();
+  }
+
+  // Canopy - multiple overlapping circles
+  const cy = tree.y - tree.trunkH;
+  const cr = tree.canopyR;
+  const canopyColors = ['#43A047', '#66BB6A', '#2E7D32', '#4CAF50'];
+  const positions = [
+    [0, -cr * 0.4, cr * 0.9],
+    [-cr * 0.5, -cr * 0.1, cr * 0.7],
+    [cr * 0.5, -cr * 0.1, cr * 0.7],
+    [0, -cr * 0.8, cr * 0.6],
+    [-cr * 0.3, -cr * 0.6, cr * 0.65],
+    [cr * 0.3, -cr * 0.6, cr * 0.65],
+  ];
+  for (let i = 0; i < positions.length; i++) {
+    ctx.fillStyle = canopyColors[i % canopyColors.length];
+    ctx.beginPath();
+    ctx.arc(tx + positions[i][0], cy + positions[i][1], positions[i][2], 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Fruits on tree
+  const fruitPositions = [
+    [cr * 0.3, -cr * 0.2], [-cr * 0.4, -cr * 0.3], [cr * 0.1, -cr * 0.7],
+    [-cr * 0.2, -cr * 0.5], [cr * 0.5, -cr * 0.5],
+  ];
+  ctx.font = `${16 + state.treeGrowth * 4}px serif`;
+  ctx.textAlign = 'center';
+  for (const fp of fruitPositions) {
+    ctx.fillText(FRUITS[state.selectedFruit].emoji, tx + fp[0], cy + fp[1]);
+  }
+}
+
+function drawSoilPatches() {
+  for (const p of state.soilPatches) {
+    const px = p.x - state.cameraX;
+    if (px < -100 || px > canvas.width + 100) continue;
+
+    // Patch
+    ctx.fillStyle = p.color;
+    const r = 8;
+    ctx.beginPath();
+    ctx.moveTo(px - p.w/2 + r, p.y);
+    ctx.lineTo(px + p.w/2 - r, p.y);
+    ctx.quadraticCurveTo(px + p.w/2, p.y, px + p.w/2, p.y + r);
+    ctx.lineTo(px + p.w/2, p.y + p.h);
+    ctx.lineTo(px - p.w/2, p.y + p.h);
+    ctx.lineTo(px - p.w/2, p.y + r);
+    ctx.quadraticCurveTo(px - p.w/2, p.y, px - p.w/2 + r, p.y);
+    ctx.fill();
+
+    // Border
+    ctx.strokeStyle = 'rgba(0,0,0,0.15)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Label
+    ctx.font = '16px serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(p.label, px, p.y - 4);
+  }
+}
+
+function drawBirds(time) {
+  for (const b of state.birds) {
+    if (b.hit) continue;
+    const bx = b.x - state.cameraX;
+    if (bx < -80 || bx > canvas.width + 80) continue;
+
+    ctx.save();
+    ctx.translate(bx, b.y);
+    ctx.scale(b.vx > 0 ? 1 : -1, 1);
+
+    // Body
+    ctx.fillStyle = '#37474F';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 18, 10, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Wing
+    const wingAngle = Math.sin(b.wingPhase) * 0.6;
+    ctx.fillStyle = '#546E7A';
+    ctx.save();
+    ctx.rotate(wingAngle);
+    ctx.beginPath();
+    ctx.ellipse(-5, -8, 16, 6, -0.3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // Eye
+    ctx.fillStyle = '#FFF';
+    ctx.beginPath(); ctx.arc(10, -3, 4, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#000';
+    ctx.beginPath(); ctx.arc(11, -3, 2, 0, Math.PI * 2); ctx.fill();
+
+    // Beak
+    ctx.fillStyle = '#FF8F00';
+    ctx.beginPath();
+    ctx.moveTo(18, 0);
+    ctx.lineTo(24, 1);
+    ctx.lineTo(18, 3);
+    ctx.fill();
+
+    ctx.restore();
+  }
+}
+
+function drawWindGusts(time) {
+  for (const g of state.windGusts) {
+    const gx = g.x - state.cameraX;
+    if (gx < -200 || gx > canvas.width + 200) continue;
+
+    // Wind lines
+    ctx.save();
+    ctx.globalAlpha = 0.25 + Math.sin(time * 0.003 + g.phase) * 0.1;
+    ctx.strokeStyle = '#B3E5FC';
+    ctx.lineWidth = 2;
+    const dir = g.strength > 0 ? 1 : -1;
+    for (let i = 0; i < 5; i++) {
+      const ly = g.y + (i / 5) * g.h;
+      const lx = gx + Math.sin(time * 0.005 + i) * 15;
+      ctx.beginPath();
+      ctx.moveTo(lx, ly);
+      ctx.quadraticCurveTo(lx + dir * 25, ly - 5, lx + dir * 50, ly);
+      ctx.stroke();
+    }
+
+    // Arrow indicator
+    ctx.font = '20px serif';
+    ctx.textAlign = 'center';
+    ctx.globalAlpha = 0.5;
+    ctx.fillText(dir > 0 ? '💨' : '💨', gx + g.w / 2, g.y - 10);
+    ctx.restore();
+  }
+}
+
+function drawAimAndTrajectory() {
+  if (state.screen !== 'playing') return;
+
+  const lp = getLaunchPoint();
+  const lpx = lp.x - state.cameraX;
+  const lpy = lp.y;
+
+  // Draw aim line
+  const angle = state.aimAngle;
+  const power = state.charging ? state.power : 0;
+  const len = 40 + power * 80;
+
+  ctx.strokeStyle = 'rgba(255,107,53,0.7)';
+  ctx.lineWidth = 3;
+  ctx.setLineDash([6, 4]);
+  ctx.beginPath();
+  ctx.moveTo(lpx, lpy);
+  ctx.lineTo(lpx + Math.cos(angle) * len, lpy + Math.sin(angle) * len);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Trajectory preview dots when charging
+  if (state.charging && power > 0.05) {
+    const fruit = FRUITS[state.selectedFruit];
+    const speed = power * (18 + state.treeGrowth * 4);
+    let vx = Math.cos(angle) * speed;
+    let vy = Math.sin(angle) * speed;
+    let px = lp.x, py = lp.y;
+
+    ctx.fillStyle = 'rgba(255,107,53,0.35)';
+    for (let i = 0; i < 50; i++) {
+      vx *= 0.998;
+      vy += GRAVITY * fruit.mass * 0.6;
+      px += vx;
+      py += vy;
+      if (py > groundY) break;
+      if (i % 2 === 0) {
+        const dotX = px - state.cameraX;
+        if (dotX > 0 && dotX < canvas.width) {
+          ctx.beginPath();
+          ctx.arc(dotX, py, 3, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
+  }
+
+  // Fruit at launch point
+  ctx.font = '28px serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(FRUITS[state.selectedFruit].emoji, lpx, lpy + 8);
+}
+
+function drawFlyingFruit() {
+  if (!state.fruit) return;
+  const f = state.fruit;
+  const fx = f.x - state.cameraX;
+  const fy = f.y;
+
+  // Trail
+  ctx.globalAlpha = 0.3;
+  for (let i = 0; i < f.trail.length; i++) {
+    const t = f.trail[i];
+    const tx = t.x - state.cameraX;
+    const alpha = i / f.trail.length * 0.3;
+    ctx.globalAlpha = alpha;
+    ctx.font = `${14 + i * 0.3}px serif`;
+    ctx.textAlign = 'center';
+    ctx.fillText(FRUITS[f.type].emoji, tx, t.y + 5);
+  }
+  ctx.globalAlpha = 1;
+
+  // Fruit with rotation
+  ctx.save();
+  ctx.translate(fx, fy);
+  ctx.rotate(f.rotation || 0);
+  ctx.font = '32px serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(FRUITS[f.type].emoji, 0, 10);
+  ctx.restore();
+}
+
+function drawParticles() {
+  for (const p of state.particles) {
+    ctx.globalAlpha = p.life;
+    ctx.fillStyle = p.color;
+    const px = p.x - state.cameraX;
+    if (p.emoji) {
+      ctx.font = `${p.size}px serif`;
+      ctx.textAlign = 'center';
+      ctx.fillText(p.emoji, px, p.y);
+    } else {
+      ctx.beginPath();
+      ctx.arc(px, p.y, p.size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawSprouts() {
+  for (const s of state.sprouts) {
+    const sx = s.x - state.cameraX;
+    const progress = Math.min(s.age / 60, 1);
+    const h = progress * s.maxH;
+
+    // Stem
+    ctx.strokeStyle = '#4CAF50';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(sx, groundY);
+    ctx.quadraticCurveTo(sx + Math.sin(progress * 2) * 5, groundY - h * 0.5, sx, groundY - h);
+    ctx.stroke();
+
+    // Leaves
+    if (progress > 0.3) {
+      const leafSize = (progress - 0.3) * 20;
+      ctx.fillStyle = '#66BB6A';
+      ctx.beginPath();
+      ctx.ellipse(sx - 6, groundY - h * 0.7, leafSize, leafSize * 0.4, -0.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(sx + 6, groundY - h * 0.6, leafSize * 0.8, leafSize * 0.35, 0.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Flower at top when fully grown
+    if (progress > 0.9) {
+      ctx.font = '16px serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(s.flower, sx, groundY - h - 5);
+    }
+  }
+}
+
+function drawScorePopup() {
+  for (const p of state.particles) {
+    if (p.isScore) {
+      const px = p.x - state.cameraX;
+      ctx.globalAlpha = p.life;
+      ctx.font = 'bold 28px Comic Sans MS, cursive';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = p.color;
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 3;
+      ctx.strokeText(p.text, px, p.y);
+      ctx.fillText(p.text, px, p.y);
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+
+// Update functions
+function updateAim() {
+  if (state.screen !== 'playing') return;
+
+  const lp = getLaunchPoint();
+  const lpx = lp.x - state.cameraX;
+  const lpy = lp.y;
+
+  // Mouse aim
+  const dx = mouseX - lpx;
+  const dy = mouseY - lpy;
+  let angle = Math.atan2(dy, dx);
+  // Clamp angle to reasonable launch range
+  angle = Math.max(-Math.PI * 0.85, Math.min(-0.05, angle));
+  state.aimAngle = angle;
+
+  // Keyboard aim
+  if (keysDown['ArrowUp']) state.aimAngle = Math.max(state.aimAngle - 0.03, -Math.PI * 0.85);
+  if (keysDown['ArrowDown']) state.aimAngle = Math.min(state.aimAngle + 0.03, -0.05);
+
+  // Charging
+  if (state.charging) {
+    state.power = Math.min(state.power + 0.012, 1);
+    document.getElementById('power-bar-fill').style.height = (state.power * 100) + '%';
+  }
+}
+
+function launchFruit() {
+  if (state.power < 0.05) { state.charging = false; state.power = 0; return; }
+
+  const lp = getLaunchPoint();
+  const fruit = FRUITS[state.selectedFruit];
+  const speed = state.power * (18 + state.treeGrowth * 4);
+
+  state.fruit = {
+    x: lp.x,
+    y: lp.y,
+    vx: Math.cos(state.aimAngle) * speed,
+    vy: Math.sin(state.aimAngle) * speed,
+    type: state.selectedFruit,
+    rotation: 0,
+    trail: [],
+    bounceCount: 0,
+    maxBounces: fruit.bounces ? 3 : 0,
+  };
+
+  state.screen = 'flying';
+  state.charging = false;
+  state.power = 0;
+  state.totalShots++;
+  document.getElementById('power-bar-fill').style.height = '0%';
+  document.getElementById('shots').textContent = state.totalShots;
+
+  playSound('launch');
+
+  // Launch particles
+  for (let i = 0; i < 8; i++) {
+    state.particles.push({
+      x: lp.x, y: lp.y,
+      vx: -Math.cos(state.aimAngle) * (2 + Math.random() * 4),
+      vy: -Math.sin(state.aimAngle) * (2 + Math.random() * 4) + Math.random() * 2,
+      life: 1, decay: 0.03, size: 3 + Math.random() * 3,
+      color: '#A5D6A7', gravity: 0.1,
+    });
+  }
+}
+
+function updateFruit() {
+  if (!state.fruit) return;
+  const f = state.fruit;
+  const fruit = FRUITS[f.type];
+
+  // Trail
+  f.trail.push({ x: f.x, y: f.y });
+  if (f.trail.length > 15) f.trail.shift();
+
+  // Physics
+  f.vy += GRAVITY * fruit.mass * 0.5;
+  f.vx *= 0.999;
+  f.rotation += f.vx * 0.03;
+
+  // Wind gusts
+  for (const g of state.windGusts) {
+    if (f.x > g.x && f.x < g.x + g.w && f.y > g.y && f.y < g.y + g.h) {
+      f.vx += g.strength * fruit.windFactor * 0.15;
+      f.vy += Math.sin(Date.now() * 0.005) * 0.2 * fruit.windFactor;
+    }
+  }
+
+  // Bird collisions
+  for (const b of state.birds) {
+    if (b.hit) continue;
+    const dx = f.x - b.x;
+    const dy = f.y - b.y;
+    if (Math.sqrt(dx * dx + dy * dy) < 30) {
+      // Bird knocks fruit
+      f.vx += b.vx * 2;
+      f.vy -= 3 + Math.random() * 3;
+      b.hit = true;
+      playSound('bird');
+
+      // Feather particles
+      for (let i = 0; i < 6; i++) {
+        state.particles.push({
+          x: b.x, y: b.y,
+          vx: (Math.random() - 0.5) * 5,
+          vy: -2 - Math.random() * 3,
+          life: 1, decay: 0.02, size: 14,
+          emoji: '🪶', gravity: 0.08,
+        });
+      }
+    }
+  }
+
+  f.x += f.vx;
+  f.y += f.vy;
+
+  // Camera follow
+  state.targetCameraX = Math.max(0, f.x - canvas.width * 0.35);
+
+  // Ground collision
+  if (f.y >= groundY) {
+    if (fruit.bounces && f.bounceCount < f.maxBounces) {
+      f.y = groundY;
+      f.vy *= -0.5;
+      f.vx *= 0.7;
+      f.bounceCount++;
+      playSound('bounce');
+
+      // Dirt particles
+      for (let i = 0; i < 5; i++) {
+        state.particles.push({
+          x: f.x, y: groundY,
+          vx: (Math.random() - 0.5) * 4,
+          vy: -2 - Math.random() * 4,
+          life: 1, decay: 0.03, size: 3 + Math.random() * 3,
+          color: '#8D6E63', gravity: 0.15,
+        });
+      }
+    } else {
+      landFruit(f);
+    }
+  }
+
+  // Off screen bottom or too far
+  if (f.y > canvas.height + 100 || f.x > canvas.width * 5) {
+    landFruit(f);
+  }
+}
+
+function landFruit(f) {
+  f.y = Math.min(f.y, groundY);
+  const landX = f.x;
+
+  // Check which patch we landed on
+  let bestPatch = null;
+  let bestDist = Infinity;
+  for (const p of state.soilPatches) {
+    if (landX >= p.x - p.w / 2 && landX <= p.x + p.w / 2) {
+      bestPatch = p;
+      break;
+    }
+    const dist = Math.min(Math.abs(landX - (p.x - p.w/2)), Math.abs(landX - (p.x + p.w/2)));
+    if (dist < bestDist) { bestDist = dist; bestPatch = p; }
+  }
+
+  // Scoring
+  const distance = landX - getLaunchPoint().x;
+  let distScore = Math.max(0, Math.floor(distance / 10));
+  let qualityMult = 1;
+  let qualityLabel = '';
+  let landedOnPatch = false;
+
+  if (bestPatch && Math.abs(landX - bestPatch.x) < bestPatch.w / 2 + 10) {
+    landedOnPatch = true;
+    if (bestPatch.type === 'great') {
+      qualityMult = 3;
+      qualityLabel = 'Perfect! 🌟';
+    } else if (bestPatch.type === 'okay') {
+      qualityMult = 1.5;
+      qualityLabel = 'Nice! 👍';
+    } else {
+      qualityMult = 0.5;
+      qualityLabel = 'Oops! 😅';
+    }
+  } else {
+    qualityLabel = 'Missed patches!';
+    qualityMult = 0.3;
+  }
+
+  // Combo for far green patches
+  if (landedOnPatch && bestPatch.type === 'great' && distance > 500) {
+    qualityMult *= 2;
+    qualityLabel = 'COMBO! 🌟🌟';
+  }
+
+  const points = Math.floor(distScore * qualityMult);
+  state.score += points;
+  state.treeGrowth = Math.min(1, state.treeGrowth + points * 0.001);
+
+  document.getElementById('score').textContent = state.score;
+
+  // Show score popup
+  state.particles.push({
+    x: landX, y: groundY - 40,
+    vx: 0, vy: -1.5,
+    life: 1, decay: 0.012, size: 28,
+    text: `+${points} ${qualityLabel}`,
+    color: qualityMult >= 2 ? '#FFD700' : qualityMult >= 1 ? '#4CAF50' : '#FF7043',
+    isScore: true, gravity: 0,
+  });
+
+  playSound(qualityMult >= 2 ? 'score' : 'land');
+
+  // Sprout animation
+  const flowers = ['🌸', '🌺', '🌼', '🌻', '🌷', '💐'];
+  state.sprouts.push({
+    x: landX,
+    age: 0,
+    maxH: 20 + points * 0.3,
+    flower: flowers[Math.floor(Math.random() * flowers.length)],
+  });
+
+  // Landing particles
+  for (let i = 0; i < 12; i++) {
+    state.particles.push({
+      x: landX, y: groundY,
+      vx: (Math.random() - 0.5) * 6,
+      vy: -3 - Math.random() * 5,
+      life: 1, decay: 0.025, size: 2 + Math.random() * 4,
+      color: landedOnPatch ? bestPatch.color : '#8D6E63',
+      gravity: 0.12,
+    });
+  }
+
+  // Place fruit emoji at landing spot
+  state.particles.push({
+    x: landX, y: groundY,
+    vx: 0, vy: 0,
+    life: 1, decay: 0.003, size: 22,
+    emoji: FRUITS[f.type].emoji, gravity: 0,
+  });
+
+  state.fruit = null;
+  state.screen = 'landed';
+
+  // Show a tree fact (player presses Next to continue)
+  showFact();
+}
+
+function checkLevelProgress() {
+  const thresholds = [100, 300, 600, 1000, 1500];
+  const newLevel = thresholds.findIndex(t => state.score < t);
+  const lvl = newLevel === -1 ? 4 : newLevel;
+
+  if (lvl > state.level) {
+    state.level = lvl;
+    document.getElementById('level').textContent = lvl + 1;
+
+    // Unlock fruits
+    if (lvl >= 1) state.unlockedFruits[1] = true;
+    if (lvl >= 2) state.unlockedFruits[2] = true;
+    updateFruitButtons();
+
+    // Show level screen
+    showLevelIntro(lvl);
+    playSound('levelup');
+  }
+}
+
+function updateFruitButtons() {
+  document.querySelectorAll('.fruit-btn').forEach((btn, i) => {
+    btn.classList.toggle('locked', !state.unlockedFruits[i]);
+  });
+}
+
+function showLevelIntro(lvl) {
+  state.screen = 'levelIntro';
+  document.getElementById('level-title').textContent = `Level ${lvl + 1}! 🎉`;
+  document.getElementById('level-desc').textContent = LEVELS[lvl].desc;
+  document.getElementById('level-screen').style.display = 'flex';
+}
+
+function updateBirds() {
+  for (const b of state.birds) {
+    if (b.hit) continue;
+    b.x += b.vx;
+    b.y += b.vy + Math.sin(Date.now() * 0.003 + b.wingPhase) * 0.3;
+    b.wingPhase += 0.15;
+
+    // Reverse at edges
+    if (b.x < 200 || b.x > canvas.width * 3) b.vx *= -1;
+    if (b.y < 50 || b.y > groundY - 100) b.vy *= -1;
+  }
+}
+
+function updateParticles() {
+  for (let i = state.particles.length - 1; i >= 0; i--) {
+    const p = state.particles[i];
+    p.x += p.vx || 0;
+    p.y += p.vy || 0;
+    p.vy += p.gravity || 0;
+    p.life -= p.decay;
+    if (p.life <= 0) state.particles.splice(i, 1);
+  }
+}
+
+function updateSprouts() {
+  for (const s of state.sprouts) {
+    if (s.age < 120) s.age++;
+  }
+}
+
+function updateClouds() {
+  for (const c of state.clouds) {
+    c.x += c.speed;
+    if (c.x - state.cameraX * 0.3 > canvas.width + 200) {
+      c.x = state.cameraX * 0.3 - 200;
+    }
+  }
+}
+
+function updateCamera() {
+  state.cameraX += (state.targetCameraX - state.cameraX) * 0.06;
+}
+
+// Show floating message
+function showMsg(text, duration) {
+  const el = document.getElementById('message');
+  el.textContent = text;
+  el.style.opacity = 1;
+  clearTimeout(state.messageTimer);
+  state.messageTimer = setTimeout(() => { el.style.opacity = 0; }, duration || 2000);
+}
+
+// Main game loop
+function gameLoop(time) {
+  groundY = canvas.height * GROUND_Y_RATIO;
+
+  drawSky();
+  drawSun();
+  drawClouds();
+  drawGround();
+  drawSoilPatches();
+  drawTree();
+  drawWindGusts(time);
+  drawBirds(time);
+  drawSprouts();
+  drawParticles();
+  drawScorePopup();
+
+  if (state.screen === 'playing') {
+    updateAim();
+    drawAimAndTrajectory();
+  }
+
+  if (state.screen === 'flying' || state.screen === 'landed') {
+    updateFruit();
+    drawFlyingFruit();
+  }
+
+  updateBirds();
+  updateParticles();
+  updateSprouts();
+  updateClouds();
+  updateCamera();
+
+  requestAnimationFrame(gameLoop);
+}
+
+// Input handlers
+canvas.addEventListener('mousemove', e => { mouseX = e.clientX; mouseY = e.clientY; });
+canvas.addEventListener('mousedown', e => {
+  ensureAudio();
+  if (state.screen === 'playing') {
+    state.charging = true;
+    state.power = 0;
+  }
+});
+canvas.addEventListener('mouseup', e => {
+  if (state.charging) launchFruit();
+});
+
+canvas.addEventListener('touchstart', e => {
+  ensureAudio();
+  e.preventDefault();
+  const t = e.touches[0];
+  mouseX = t.clientX; mouseY = t.clientY;
+  if (state.screen === 'playing') {
+    state.charging = true;
+    state.power = 0;
+  }
+}, { passive: false });
+canvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  const t = e.touches[0];
+  mouseX = t.clientX; mouseY = t.clientY;
+}, { passive: false });
+canvas.addEventListener('touchend', e => {
+  e.preventDefault();
+  if (state.charging) launchFruit();
+}, { passive: false });
+
+document.addEventListener('keydown', e => {
+  keysDown[e.key] = true;
+  if (e.key === ' ' && state.screen === 'playing') {
+    e.preventDefault();
+    if (!state.charging) {
+      state.charging = true;
+      state.power = 0;
+    }
+  }
+});
+document.addEventListener('keyup', e => {
+  keysDown[e.key] = false;
+  if (e.key === ' ' && state.charging) {
+    launchFruit();
+  }
+});
+
+function selectFruit(idx) {
+  if (!state.unlockedFruits[idx]) return;
+  state.selectedFruit = idx;
+  document.querySelectorAll('.fruit-btn').forEach((btn, i) => {
+    btn.classList.toggle('selected', i === idx);
+  });
+}
+
+function startGame() {
+  document.getElementById('start-screen').style.display = 'none';
+  state.level = 0;
+  state.score = 0;
+  state.treeGrowth = 0;
+  state.totalShots = 0;
+  state.unlockedFruits = [true, false, false];
+  updateFruitButtons();
+  selectFruit(0);
+  showLevelIntro(0);
+}
+
+function startLevel() {
+  document.getElementById('level-screen').style.display = 'none';
+  state.soilPatches = generatePatches(state.level);
+  state.birds = generateBirds(state.level);
+  state.windGusts = generateWindGusts(state.level);
+  state.clouds = generateClouds();
+  state.targetCameraX = 0;
+  state.cameraX = 0;
+  state.screen = 'playing';
+}
+
+// Start
+requestAnimationFrame(gameLoop);
+</script>
+</body>
+</html>

@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tree Games</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  min-height: 100vh;
+  font-family: 'Comic Sans MS', 'Chalkboard SE', cursive;
+  background: linear-gradient(180deg, #87CEEB 0%, #B3E5FC 40%, #C8E6C9 70%, #A5D6A7 100%);
+  display: flex; flex-direction: column; align-items: center;
+  overflow-x: hidden;
+}
+
+/* Animated background elements */
+.bg-scene {
+  position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden;
+}
+.bg-cloud {
+  position: absolute; background: rgba(255,255,255,0.7); border-radius: 50%;
+  animation: drift linear infinite;
+}
+.bg-cloud::before, .bg-cloud::after {
+  content: ''; position: absolute; background: inherit; border-radius: 50%;
+}
+.bg-cloud:nth-child(1) { width: 120px; height: 50px; top: 8%; left: -150px; animation-duration: 35s; }
+.bg-cloud:nth-child(1)::before { width: 70px; height: 40px; top: -20px; left: 20px; }
+.bg-cloud:nth-child(1)::after { width: 80px; height: 35px; top: -10px; left: 50px; }
+.bg-cloud:nth-child(2) { width: 100px; height: 40px; top: 15%; left: -120px; animation-duration: 45s; animation-delay: 8s; }
+.bg-cloud:nth-child(2)::before { width: 60px; height: 35px; top: -18px; left: 15px; }
+.bg-cloud:nth-child(2)::after { width: 50px; height: 30px; top: -8px; left: 45px; }
+.bg-cloud:nth-child(3) { width: 90px; height: 35px; top: 5%; left: -110px; animation-duration: 55s; animation-delay: 20s; }
+.bg-cloud:nth-child(3)::before { width: 55px; height: 30px; top: -15px; left: 10px; }
+.bg-cloud:nth-child(3)::after { width: 45px; height: 28px; top: -8px; left: 40px; }
+
+@keyframes drift {
+  from { transform: translateX(0); }
+  to { transform: translateX(calc(100vw + 300px)); }
+}
+
+/* Ground */
+.ground {
+  position: fixed; bottom: 0; left: 0; right: 0; height: 25vh;
+  background: linear-gradient(180deg, #7CB342 0%, #689F38 30%, #558B2F 100%);
+  z-index: 0;
+}
+.ground::before {
+  content: ''; position: absolute; top: -8px; left: 0; right: 0; height: 16px;
+  background: repeating-linear-gradient(90deg,
+    transparent 0px, transparent 10px,
+    #8BC34A 10px, #8BC34A 12px,
+    transparent 12px, transparent 25px
+  );
+  mask-image: linear-gradient(180deg, transparent 0%, black 100%);
+  -webkit-mask-image: linear-gradient(180deg, transparent 0%, black 100%);
+}
+
+/* Trees in background */
+.bg-trees {
+  position: fixed; bottom: 25vh; left: 0; right: 0; height: 120px;
+  z-index: 0; display: flex; justify-content: space-around; align-items: flex-end;
+  padding: 0 40px;
+}
+.bg-tree {
+  font-size: 60px; opacity: 0.35; filter: blur(1px);
+  animation: sway 4s ease-in-out infinite;
+}
+.bg-tree:nth-child(even) { animation-delay: -2s; font-size: 50px; opacity: 0.25; }
+@keyframes sway {
+  0%, 100% { transform: rotate(-2deg); }
+  50% { transform: rotate(2deg); }
+}
+
+/* Content */
+.content { position: relative; z-index: 1; width: 100%; max-width: 800px; padding: 40px 20px 120px; }
+
+h1 {
+  font-size: clamp(42px, 8vw, 72px);
+  color: #2E7D32;
+  text-shadow: 3px 3px 0 #fff, 5px 5px 0 rgba(0,0,0,0.06);
+  text-align: center;
+  margin-bottom: 8px;
+}
+.subtitle {
+  text-align: center;
+  font-size: clamp(16px, 3vw, 22px);
+  color: #558B2F;
+  margin-bottom: 40px;
+}
+
+.games-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 24px;
+}
+
+.game-card {
+  background: rgba(255,255,255,0.9);
+  border-radius: 24px;
+  padding: 28px 24px;
+  text-decoration: none;
+  color: inherit;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+  border: 4px solid transparent;
+  transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.game-card:hover {
+  transform: translateY(-6px) scale(1.02);
+  box-shadow: 0 14px 36px rgba(0,0,0,0.15);
+  border-color: #66BB6A;
+}
+.game-card:active {
+  transform: translateY(-2px) scale(1.0);
+}
+
+.game-icon {
+  font-size: 64px;
+  margin-bottom: 12px;
+  animation: bounce 2s ease-in-out infinite;
+}
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+.game-title {
+  font-size: 28px;
+  color: #2E7D32;
+  margin-bottom: 8px;
+}
+.game-desc {
+  font-size: 16px;
+  color: #666;
+  line-height: 1.4;
+}
+.game-tag {
+  display: inline-block;
+  margin-top: 14px;
+  padding: 4px 14px;
+  background: #E8F5E9;
+  color: #43A047;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: bold;
+}
+
+/* Coming soon card */
+.game-card.coming-soon {
+  opacity: 0.5;
+  pointer-events: none;
+  border: 3px dashed #ccc;
+  background: rgba(255,255,255,0.5);
+}
+.game-card.coming-soon .game-icon { animation: none; }
+
+/* Footer frog */
+.footer-frog {
+  text-align: center;
+  margin-top: 40px;
+  font-size: 14px;
+  color: #999;
+}
+.footer-frog span { font-size: 28px; }
+</style>
+</head>
+<body>
+
+<div class="bg-scene">
+  <div class="bg-cloud"></div>
+  <div class="bg-cloud"></div>
+  <div class="bg-cloud"></div>
+</div>
+
+<div class="bg-trees">
+  <div class="bg-tree">🌳</div>
+  <div class="bg-tree">🌲</div>
+  <div class="bg-tree">🌳</div>
+  <div class="bg-tree">🌴</div>
+  <div class="bg-tree">🌳</div>
+  <div class="bg-tree">🌲</div>
+  <div class="bg-tree">🌳</div>
+</div>
+
+<div class="ground"></div>
+
+<div class="content">
+  <h1>Tree Games</h1>
+  <p class="subtitle">Fun games about trees, fruits, and nature!</p>
+
+  <div class="games-grid">
+    <a href="fruit_launcher/" class="game-card">
+      <div class="game-icon">🌳</div>
+      <div class="game-title">Fruit Launcher</div>
+      <div class="game-desc">Launch fruit from a growing tree! Aim for the best soil patches and watch sprouts bloom where they land.</div>
+      <div class="game-tag">5 Levels</div>
+    </a>
+
+    <div class="game-card coming-soon">
+      <div class="game-icon">🌱</div>
+      <div class="game-title">Coming Soon</div>
+      <div class="game-desc">More tree games are on the way!</div>
+      <div class="game-tag">Stay tuned</div>
+    </div>
+  </div>
+
+  <div class="footer-frog">
+    <span>🐸🥔</span>
+    <br>made with love
+  </div>
+</div>
+
+</body>
+</html>
