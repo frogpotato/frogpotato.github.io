@@ -440,8 +440,6 @@ document.addEventListener('keydown', e => {
       // Record intro fact
       if (game.currentFact) collectedFacts.push(game.currentFact);
       game.screen = 'playing';
-    } else if (game.screen === 'scrollFact') {
-      game.screen = 'playing';
     } else if (game.screen === 'levelComplete') {
       if (game.level + 1 < LEVELS.length) {
         initLevel(game.level + 1);
@@ -477,7 +475,6 @@ canvas.addEventListener('touchstart', e => {
     if (game.currentFact) collectedFacts.push(game.currentFact);
     game.screen = 'playing'; return;
   }
-  if (game.screen === 'scrollFact') { game.screen = 'playing'; return; }
   if (game.screen === 'levelComplete') {
     if (game.level + 1 < LEVELS.length) initLevel(game.level + 1);
     else { game.screen = 'encyclopedia'; game.encyclopediaScroll = 0; }
@@ -511,9 +508,6 @@ function update() {
 
   if (game.invincible > 0) game.invincible--;
   if (game.shakeTimer > 0) game.shakeTimer--;
-
-  // Hit fact timer (shows briefly over gameplay)
-  if (game.hitFactTimer > 0) game.hitFactTimer--;
 
   // Player movement
   let ax = 0, ay = 0;
@@ -560,8 +554,6 @@ function update() {
       s.collected = true;
       totalScrollsCollected++;
       collectedFacts.push(s.fact);
-      game.currentFact = s.fact;
-      game.screen = 'scrollFact';
       playSound('scroll');
       // Sparkle particles
       for (let i = 0; i < 10; i++) {
@@ -572,7 +564,6 @@ function update() {
           life: 1, decay: 0.02, size: 12, emoji: '✨',
         });
       }
-      return; // pause gameplay
     }
   }
 
@@ -730,14 +721,6 @@ function hitPlayer(source) {
   game.invincible = 90;
   game.shakeTimer = 15;
   playSound('hit');
-
-  // Show a hit fact
-  const hitFact = getHitFact();
-  if (hitFact) {
-    game.hitFactText = hitFact.text;
-    game.hitFactTimer = 150; // ~2.5 seconds
-    collectedFacts.push(hitFact);
-  }
 
   for (let i = 0; i < 8; i++) {
     game.particles.push({
@@ -953,12 +936,6 @@ function draw() {
   ctx.font = 'bold 16px Comic Sans MS, cursive';
   ctx.fillStyle = lvl.dusk ? '#E1BEE7' : '#fff'; ctx.textAlign = 'right';
   ctx.fillText(`${lvl.emoji} ${lvl.name} — ${lvl.pollinatorEmoji} ${lvl.pollinator}`, W - 16, 34);
-
-  // Hit fact banner (overlay during gameplay)
-  if (game.hitFactTimer > 0) {
-    const alpha = game.hitFactTimer < 30 ? game.hitFactTimer / 30 : 1;
-    drawFactBanner(game.hitFactText, '⚡', alpha, false);
-  }
 
   ctx.restore();
 }
@@ -1179,13 +1156,6 @@ function drawIntroScreen() {
   }
 }
 
-function drawScrollFactScreen() {
-  draw(); // draw the game behind it
-  if (game.currentFact) {
-    drawFactBanner(game.currentFact.text, '📜', 1, true);
-  }
-}
-
 function drawLevelCompleteScreen() {
   const W = canvas.width, H = canvas.height;
   const lvl = LEVELS[game.level];
@@ -1212,34 +1182,89 @@ function drawLevelCompleteScreen() {
   ctx.globalAlpha = 1;
   game.particles = game.particles.filter(p => p.life > 0);
 
+  // Collected scroll facts for this level
+  const lvlScrollFacts = game.scrolls.filter(s => s.collected).map(s => s.fact);
+  const lvlScrollTotal = game.scrolls.length;
+
+  // Calculate card height dynamically
+  const fontSize = Math.min(15, W * 0.023);
+  ctx.font = `${fontSize}px Comic Sans MS, cursive`;
   const cardW = Math.min(560, W * 0.85);
-  const cardH = Math.min(280, H * 0.45);
+  const maxTW = cardW - 50;
+
+  // Measure scroll fact text heights
+  let factsHeight = 0;
+  const factLines = [];
+  for (const f of lvlScrollFacts) {
+    const words = f.text.split(' ');
+    let line = '', lines = [];
+    for (const word of words) {
+      const test = line + word + ' ';
+      if (ctx.measureText(test).width > maxTW && line) { lines.push(line.trim()); line = word + ' '; }
+      else line = test;
+    }
+    if (line) lines.push(line.trim());
+    factLines.push(lines);
+    factsHeight += lines.length * 20 + 16; // text + gap
+  }
+
+  const headerH = 135;
+  const factsSection = lvlScrollFacts.length > 0 ? factsHeight + 30 : 30;
+  const footerH = 50;
+  const cardH = Math.min(H * 0.85, headerH + factsSection + footerH);
   const cardX = W / 2 - cardW / 2;
-  const cardY = H / 2 - cardH / 2 - 10;
+  const cardY = Math.max(10, H / 2 - cardH / 2);
 
   ctx.fillStyle = 'rgba(255,255,255,0.92)';
   ctx.beginPath(); ctx.roundRect(cardX, cardY, cardW, cardH, 24); ctx.fill();
   ctx.strokeStyle = '#66BB6A'; ctx.lineWidth = 4; ctx.stroke();
 
   ctx.font = '42px serif'; ctx.textAlign = 'center';
-  ctx.fillText(lvl.factEmoji, W / 2, cardY + 55);
+  ctx.fillText(lvl.factEmoji, W / 2, cardY + 50);
 
-  ctx.font = `bold ${Math.min(28, W * 0.04)}px Comic Sans MS, cursive`;
+  ctx.font = `bold ${Math.min(26, W * 0.04)}px Comic Sans MS, cursive`;
   ctx.fillStyle = '#2E7D32';
-  ctx.fillText(`${lvl.emoji} ${lvl.name} Complete!`, W / 2, cardY + 95);
+  ctx.fillText(`${lvl.emoji} ${lvl.name} Complete!`, W / 2, cardY + 88);
 
-  // Scroll count
-  const lvlScrolls = game.scrolls.filter(s => s.collected).length;
-  const lvlScrollTotal = game.scrolls.length;
-  ctx.font = `${Math.min(18, W * 0.028)}px Comic Sans MS, cursive`;
+  ctx.font = `${Math.min(16, W * 0.025)}px Comic Sans MS, cursive`;
   ctx.fillStyle = '#888';
-  ctx.fillText(`📜 Scrolls found: ${lvlScrolls}/${lvlScrollTotal}   |   Facts learned: ${collectedFacts.length}`, W / 2, cardY + 125);
+  ctx.fillText(`📜 Scrolls found: ${lvlScrollFacts.length}/${lvlScrollTotal}`, W / 2, cardY + 115);
+
+  // Show collected scroll facts
+  if (lvlScrollFacts.length > 0) {
+    let fy = cardY + headerH + 5;
+    ctx.font = `bold ${Math.min(14, W * 0.022)}px Comic Sans MS, cursive`;
+    ctx.fillStyle = '#999'; ctx.textAlign = 'center';
+    ctx.fillText('FACTS DISCOVERED:', W / 2, fy);
+    fy += 20;
+
+    ctx.font = `${fontSize}px Comic Sans MS, cursive`;
+    ctx.textAlign = 'left';
+    for (let i = 0; i < factLines.length; i++) {
+      // Bullet
+      ctx.font = '14px serif';
+      ctx.fillStyle = '#66BB6A'; ctx.textAlign = 'left';
+      ctx.fillText('📜', cardX + 18, fy + 2);
+
+      ctx.font = `${fontSize}px Comic Sans MS, cursive`;
+      ctx.fillStyle = '#444'; ctx.textAlign = 'left';
+      for (const ln of factLines[i]) {
+        ctx.fillText(ln, cardX + 42, fy);
+        fy += 20;
+      }
+      fy += 8;
+    }
+  } else {
+    ctx.font = `${Math.min(15, W * 0.023)}px Comic Sans MS, cursive`;
+    ctx.fillStyle = '#aaa'; ctx.textAlign = 'center';
+    ctx.fillText('No scrolls found this level — try to grab some next time!', W / 2, cardY + headerH + 15);
+  }
 
   const nextText = game.level + 1 < LEVELS.length ? 'Press SPACE or tap for next level!' : 'Press SPACE or tap to see your encyclopedia!';
   const pulse = 1 + Math.sin(game.time * 0.06) * 0.06;
-  ctx.save(); ctx.translate(W / 2, cardY + cardH - 40); ctx.scale(pulse, pulse);
-  ctx.font = `bold ${Math.min(20, W * 0.03)}px Comic Sans MS, cursive`;
-  ctx.fillStyle = '#FF6B35';
+  ctx.save(); ctx.translate(W / 2, cardY + cardH - 22); ctx.scale(pulse, pulse);
+  ctx.font = `bold ${Math.min(18, W * 0.028)}px Comic Sans MS, cursive`;
+  ctx.fillStyle = '#FF6B35'; ctx.textAlign = 'center';
   ctx.fillText(nextText, 0, 0);
   ctx.restore();
 }
@@ -1416,7 +1441,6 @@ function loop() {
   if (game.screen === 'title') drawTitleScreen();
   else if (game.screen === 'intro') drawIntroScreen();
   else if (game.screen === 'playing') draw();
-  else if (game.screen === 'scrollFact') drawScrollFactScreen();
   else if (game.screen === 'levelComplete') drawLevelCompleteScreen();
   else if (game.screen === 'gameover') { draw(); drawGameOver(); }
   else if (game.screen === 'encyclopedia') drawEncyclopedia();
