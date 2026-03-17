@@ -104,6 +104,8 @@ canvas { display: block; cursor: crosshair; }
   <span>🌟 Score: <span id="score">0</span></span>
   <span>🌳 Level: <span id="level">1</span></span>
   <span>🎯 Shots: <span id="shots">0</span></span>
+  <button onclick="saveHighScore(state.score)" style="font-family:inherit;font-size:14px;padding:4px 12px;border:2px solid #FFD54F;border-radius:12px;background:#FFF8E1;color:#E65100;cursor:pointer;">Save Score</button>
+  <a href="../" style="font-family:inherit;font-size:14px;padding:4px 12px;border:2px solid #66BB6A;border-radius:12px;background:#E8F5E9;color:#2E7D32;cursor:pointer;text-decoration:none;">Home</a>
 </div>
 
 <div id="power-bar-bg"><div id="power-bar-fill"></div></div>
@@ -1239,7 +1241,22 @@ function selectFruit(idx) {
   });
 }
 
+function saveHighScore(score) {
+  if (score <= 0) return;
+  const name = prompt(`Score: ${score.toLocaleString()}! Enter your name for the high scores:`, 'Player');
+  if (!name) return;
+  const key = 'tree_games_scores_fruit_launcher';
+  let scores = [];
+  try { scores = JSON.parse(localStorage.getItem(key)) || []; } catch {}
+  scores.push({ name: name.trim().slice(0, 20), score, date: new Date().toISOString() });
+  scores.sort((a, b) => b.score - a.score);
+  scores = scores.slice(0, 10);
+  localStorage.setItem(key, JSON.stringify(scores));
+}
+
 function startGame() {
+  // Save previous score if there is one
+  if (state.score > 0) saveHighScore(state.score);
   document.getElementById('start-screen').style.display = 'none';
   state.level = 0;
   state.score = 0;

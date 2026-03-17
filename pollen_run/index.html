@@ -11,6 +11,7 @@ canvas { display: block; }
 </style>
 </head>
 <body>
+<a href="../" id="home-btn" style="position:absolute;top:12px;left:12px;z-index:10;font-family:'Comic Sans MS',cursive;font-size:14px;padding:6px 14px;border:2px solid #66BB6A;border-radius:12px;background:rgba(232,245,233,0.9);color:#2E7D32;cursor:pointer;text-decoration:none;">Home</a>
 <canvas id="game"></canvas>
 <script>
 const canvas = document.getElementById('game');
@@ -355,6 +356,20 @@ function initLevel(lvlIdx) {
   }
 }
 
+// ── High Score Saving ──
+function saveHighScore(score) {
+  if (score <= 0) return;
+  const name = prompt(`Score: ${score.toLocaleString()}! Enter your name for the high scores:`, 'Player');
+  if (!name) return;
+  const key = 'tree_games_scores_pollen_run';
+  let scores = [];
+  try { scores = JSON.parse(localStorage.getItem(key)) || []; } catch {}
+  scores.push({ name: name.trim().slice(0, 20), score, date: new Date().toISOString() });
+  scores.sort((a, b) => b.score - a.score);
+  scores = scores.slice(0, 10);
+  localStorage.setItem(key, JSON.stringify(scores));
+}
+
 // ── Input ──
 function handleAction() {
   ensureAudio();
@@ -366,9 +381,9 @@ function handleAction() {
   else if (game.screen === 'levelComplete') {
     if (game.openScrollIdx >= 0) { game.openScrollIdx = -1; return; }
     if (game.level + 1 < LEVELS.length) initLevel(game.level + 1);
-    else { game.screen = 'encyclopedia'; game.encyclopediaScroll = 0; }
+    else { saveHighScore(game.score); game.screen = 'encyclopedia'; game.encyclopediaScroll = 0; }
   }
-  else if (game.screen === 'gameover') initLevel(game.level);
+  else if (game.screen === 'gameover') { saveHighScore(game.score); initLevel(game.level); }
   else if (game.screen === 'win') game.screen = 'title';
   else if (game.screen === 'encyclopedia') game.screen = 'win';
 }
