@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tree Games</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  min-height: 100vh;
+  font-family: 'Comic Sans MS', 'Chalkboard SE', cursive;
+  background: linear-gradient(180deg, #87CEEB 0%, #B3E5FC 40%, #C8E6C9 70%, #A5D6A7 100%);
+  display: flex; flex-direction: column; align-items: center;
+  overflow-x: hidden;
+}
+
+.bg-scene { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+.bg-cloud { position: absolute; background: rgba(255,255,255,0.7); border-radius: 50%; animation: drift linear infinite; }
+.bg-cloud::before, .bg-cloud::after { content: ''; position: absolute; background: inherit; border-radius: 50%; }
+.bg-cloud:nth-child(1) { width: 120px; height: 50px; top: 8%; left: -150px; animation-duration: 35s; }
+.bg-cloud:nth-child(1)::before { width: 70px; height: 40px; top: -20px; left: 20px; }
+.bg-cloud:nth-child(1)::after { width: 80px; height: 35px; top: -10px; left: 50px; }
+.bg-cloud:nth-child(2) { width: 100px; height: 40px; top: 15%; left: -120px; animation-duration: 45s; animation-delay: 8s; }
+.bg-cloud:nth-child(2)::before { width: 60px; height: 35px; top: -18px; left: 15px; }
+.bg-cloud:nth-child(2)::after { width: 50px; height: 30px; top: -8px; left: 45px; }
+.bg-cloud:nth-child(3) { width: 90px; height: 35px; top: 5%; left: -110px; animation-duration: 55s; animation-delay: 20s; }
+.bg-cloud:nth-child(3)::before { width: 55px; height: 30px; top: -15px; left: 10px; }
+.bg-cloud:nth-child(3)::after { width: 45px; height: 28px; top: -8px; left: 40px; }
+@keyframes drift { from { transform: translateX(0); } to { transform: translateX(calc(100vw + 300px)); } }
+
+.ground { position: fixed; bottom: 0; left: 0; right: 0; height: 25vh; background: linear-gradient(180deg, #7CB342 0%, #689F38 30%, #558B2F 100%); z-index: 0; }
+.ground::before { content: ''; position: absolute; top: -8px; left: 0; right: 0; height: 16px; background: repeating-linear-gradient(90deg, transparent 0px, transparent 10px, #8BC34A 10px, #8BC34A 12px, transparent 12px, transparent 25px); mask-image: linear-gradient(180deg, transparent 0%, black 100%); -webkit-mask-image: linear-gradient(180deg, transparent 0%, black 100%); }
+
+.bg-trees { position: fixed; bottom: 25vh; left: 0; right: 0; height: 120px; z-index: 0; display: flex; justify-content: space-around; align-items: flex-end; padding: 0 40px; }
+.bg-tree { font-size: 60px; opacity: 0.35; filter: blur(1px); animation: sway 4s ease-in-out infinite; }
+.bg-tree:nth-child(even) { animation-delay: -2s; font-size: 50px; opacity: 0.25; }
+@keyframes sway { 0%, 100% { transform: rotate(-2deg); } 50% { transform: rotate(2deg); } }
+
+.content { position: relative; z-index: 1; width: 100%; max-width: 800px; padding: 40px 20px 120px; }
+
+h1 { font-size: clamp(42px, 8vw, 72px); color: #2E7D32; text-shadow: 3px 3px 0 #fff, 5px 5px 0 rgba(0,0,0,0.06); text-align: center; margin-bottom: 8px; }
+.subtitle { text-align: center; font-size: clamp(16px, 3vw, 22px); color: #558B2F; margin-bottom: 12px; }
+
+/* Nav tabs */
+.nav-tabs {
+  display: flex; justify-content: center; gap: 10px; margin-bottom: 28px;
+}
+.nav-tab {
+  font-family: inherit; font-size: 16px; font-weight: bold; padding: 8px 24px;
+  border: 3px solid #66BB6A; border-radius: 20px; cursor: pointer;
+  background: rgba(255,255,255,0.7); color: #2E7D32;
+  transition: all 0.2s;
+}
+.nav-tab:hover { background: #E8F5E9; }
+.nav-tab.active { background: #66BB6A; color: #fff; }
+
+/* Pages */
+.page { display: none; }
+.page.active { display: block; }
+
+.games-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 24px; }
+
+.game-card {
+  background: rgba(255,255,255,0.9); border-radius: 24px; padding: 28px 24px;
+  text-decoration: none; color: inherit;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.1); border: 4px solid transparent;
+  transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+}
+.game-card:hover { transform: translateY(-6px) scale(1.02); box-shadow: 0 14px 36px rgba(0,0,0,0.15); border-color: #66BB6A; }
+.game-card:active { transform: translateY(-2px) scale(1.0); }
+
+.game-icon { font-size: 64px; margin-bottom: 12px; animation: bounce 2s ease-in-out infinite; }
+@keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+
+.game-title { font-size: 28px; color: #2E7D32; margin-bottom: 8px; }
+.game-desc { font-size: 16px; color: #666; line-height: 1.4; }
+.game-tag { display: inline-block; margin-top: 10px; padding: 4px 14px; background: #E8F5E9; color: #43A047; border-radius: 20px; font-size: 13px; font-weight: bold; }
+
+.game-highscore {
+  margin-top: 12px; padding: 8px 16px;
+  background: linear-gradient(135deg, #FFF8E1, #FFF3E0); border-radius: 14px;
+  border: 2px solid #FFD54F;
+  font-size: 14px; color: #E65100;
+}
+.game-highscore .hs-score { font-size: 20px; font-weight: bold; color: #FF6B35; }
+.game-highscore .hs-none { color: #aaa; font-style: italic; }
+
+.game-card.coming-soon { opacity: 0.5; pointer-events: none; border: 3px dashed #ccc; background: rgba(255,255,255,0.5); }
+.game-card.coming-soon .game-icon { animation: none; }
+
+/* High Scores Page */
+.hs-section {
+  background: rgba(255,255,255,0.9); border-radius: 24px; padding: 24px;
+  margin-bottom: 24px; box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+}
+.hs-section h2 {
+  font-size: 24px; color: #2E7D32; margin-bottom: 16px;
+  display: flex; align-items: center; gap: 10px;
+}
+.hs-table { width: 100%; border-collapse: collapse; }
+.hs-table th { text-align: left; font-size: 13px; color: #999; text-transform: uppercase; letter-spacing: 1px; padding: 6px 12px; border-bottom: 2px solid #E8F5E9; }
+.hs-table td { padding: 10px 12px; border-bottom: 1px solid #f0f0f0; font-size: 16px; }
+.hs-table tr:last-child td { border-bottom: none; }
+.hs-rank { font-weight: bold; color: #FFB300; width: 40px; }
+.hs-rank-1 { font-size: 20px; }
+.hs-score-cell { font-weight: bold; color: #FF6B35; font-size: 18px; }
+.hs-name { color: #2E7D32; }
+.hs-date { color: #999; font-size: 13px; }
+.hs-empty { color: #bbb; font-style: italic; text-align: center; padding: 20px; }
+.hs-clear-btn {
+  font-family: inherit; font-size: 12px; padding: 4px 12px; margin-left: auto;
+  border: 2px solid #EF9A9A; border-radius: 10px; cursor: pointer;
+  background: #fff; color: #E57373; transition: all 0.2s;
+}
+.hs-clear-btn:hover { background: #FFEBEE; }
+
+.footer-frog { text-align: center; margin-top: 40px; font-size: 14px; color: #999; }
+.footer-frog span { font-size: 28px; }
+</style>
+</head>
+<body>
+
+<div class="bg-scene">
+  <div class="bg-cloud"></div>
+  <div class="bg-cloud"></div>
+  <div class="bg-cloud"></div>
+</div>
+
+<div class="bg-trees">
+  <div class="bg-tree">🌳</div>
+  <div class="bg-tree">🌲</div>
+  <div class="bg-tree">🌳</div>
+  <div class="bg-tree">🌴</div>
+  <div class="bg-tree">🌳</div>
+  <div class="bg-tree">🌲</div>
+  <div class="bg-tree">🌳</div>
+</div>
+
+<div class="ground"></div>
+
+<div class="content">
+  <h1>Tree Games</h1>
+  <p class="subtitle">Fun games about trees, fruits, and nature!</p>
+
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="showPage('games')">Games</button>
+    <button class="nav-tab" onclick="showPage('scores')">High Scores</button>
+  </div>
+
+  <!-- Games Page -->
+  <div id="page-games" class="page active">
+    <div class="games-grid">
+      <a href="fruit_launcher/" class="game-card">
+        <div class="game-icon">🌳</div>
+        <div class="game-title">Fruit Launcher</div>
+        <div class="game-desc">Launch fruit from a growing tree! Aim for the best soil patches and watch sprouts bloom where they land.</div>
+        <div class="game-tag">5 Levels</div>
+        <div class="game-highscore" id="hs-fruit-launcher"></div>
+      </a>
+
+      <a href="pollen_run/" class="game-card">
+        <div class="game-icon">🐝</div>
+        <div class="game-title">Pollen Run</div>
+        <div class="game-desc">Fly as a bee, beetle, hummingbird, or bat! Dodge obstacles and pollinate every blossom to help the trees grow.</div>
+        <div class="game-tag">4 Levels</div>
+        <div class="game-highscore" id="hs-pollen-run"></div>
+      </a>
+
+      <div class="game-card coming-soon">
+        <div class="game-icon">🌱</div>
+        <div class="game-title">Coming Soon</div>
+        <div class="game-desc">More tree games are on the way!</div>
+        <div class="game-tag">Stay tuned</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- High Scores Page -->
+  <div id="page-scores" class="page">
+    <div class="hs-section">
+      <h2>🌳 Fruit Launcher <button class="hs-clear-btn" onclick="clearScores('fruit_launcher')">Clear</button></h2>
+      <div id="scores-fruit-launcher"></div>
+    </div>
+    <div class="hs-section">
+      <h2>🐝 Pollen Run <button class="hs-clear-btn" onclick="clearScores('pollen_run')">Clear</button></h2>
+      <div id="scores-pollen-run"></div>
+    </div>
+  </div>
+
+  <div class="footer-frog">
+    <span>🐸🥔</span>
+    <br>made with love
+  </div>
+</div>
+
+<script>
+// ── High Score System ──
+// Format: localStorage key "tree_games_scores_{gameId}" = JSON array of {name, score, date}
+
+function getScores(gameId) {
+  try {
+    return JSON.parse(localStorage.getItem(`tree_games_scores_${gameId}`)) || [];
+  } catch { return []; }
+}
+
+function formatDate(dateStr) {
+  const d = new Date(dateStr);
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+}
+
+function rankEmoji(i) {
+  if (i === 0) return '🥇';
+  if (i === 1) return '🥈';
+  if (i === 2) return '🥉';
+  return `${i + 1}.`;
+}
+
+function renderCardHighscore(elId, gameId) {
+  const el = document.getElementById(elId);
+  const scores = getScores(gameId);
+  if (scores.length === 0) {
+    el.innerHTML = '<span class="hs-none">No high scores yet — go play!</span>';
+  } else {
+    const best = scores[0];
+    el.innerHTML = `🏆 Best: <span class="hs-score">${best.score.toLocaleString()}</span><br>${best.name} — ${formatDate(best.date)}`;
+  }
+}
+
+function renderScoresTable(containerId, gameId) {
+  const el = document.getElementById(containerId);
+  const scores = getScores(gameId);
+  if (scores.length === 0) {
+    el.innerHTML = '<div class="hs-empty">No scores yet. Go play and set a record!</div>';
+    return;
+  }
+  let html = '<table class="hs-table"><thead><tr><th>Rank</th><th>Name</th><th>Score</th><th>Date</th></tr></thead><tbody>';
+  for (let i = 0; i < scores.length; i++) {
+    const s = scores[i];
+    html += `<tr>
+      <td class="hs-rank ${i < 3 ? 'hs-rank-1' : ''}">${rankEmoji(i)}</td>
+      <td class="hs-name">${escapeHtml(s.name)}</td>
+      <td class="hs-score-cell">${s.score.toLocaleString()} 🌟</td>
+      <td class="hs-date">${formatDate(s.date)}</td>
+    </tr>`;
+  }
+  html += '</tbody></table>';
+  el.innerHTML = html;
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function clearScores(gameId) {
+  if (confirm('Clear all high scores for this game?')) {
+    localStorage.removeItem(`tree_games_scores_${gameId}`);
+    refreshAll();
+  }
+}
+
+function refreshAll() {
+  renderCardHighscore('hs-fruit-launcher', 'fruit_launcher');
+  renderCardHighscore('hs-pollen-run', 'pollen_run');
+  renderScoresTable('scores-fruit-launcher', 'fruit_launcher');
+  renderScoresTable('scores-pollen-run', 'pollen_run');
+}
+
+function showPage(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(`page-${page}`).classList.add('active');
+  event.currentTarget.classList.add('active');
+  refreshAll();
+}
+
+// Refresh on load and on visibility change (coming back from a game)
+refreshAll();
+document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshAll(); });
+window.addEventListener('focus', refreshAll);
+</script>
+
+</body>
+</html>
